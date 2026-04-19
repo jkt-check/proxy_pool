@@ -8,11 +8,15 @@
 -------------------------------------------------
    Change Activity:
                    2020/7/3:
+                   2024/4/19: 添加环境依赖跳过标记
 -------------------------------------------------
 """
 __author__ = 'JHao'
 
+import pytest
 
+
+@pytest.mark.skip(reason="需要 SSDB 服务运行，属于集成测试")
 def testSsdbClient():
     from db.dbClient import DbClient
     from helper.proxy import Proxy

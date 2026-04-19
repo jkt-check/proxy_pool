@@ -8,6 +8,7 @@
 -------------------------------------------------
    Change Activity:
                    2020/6/22:
+                   2024/4/19: 修复端口类型不一致问题
 -------------------------------------------------
 """
 __author__ = 'JHao'
@@ -29,8 +30,10 @@ class ConfigHandler(withMetaclass(Singleton)):
         return os.environ.get("HOST", setting.HOST)
 
     @LazyProperty
-    def serverPort(self):
-        return os.environ.get("PORT", setting.PORT)
+    def serverPort(self) -> int:
+        """返回 int 类型的端口号"""
+        port = os.environ.get("PORT", setting.PORT)
+        return int(port)
 
     @LazyProperty
     def dbConn(self):
@@ -54,7 +57,7 @@ class ConfigHandler(withMetaclass(Singleton)):
         return os.getenv("HTTPS_URL", setting.HTTPS_URL)
 
     @LazyProperty
-    def verifyTimeout(self):
+    def verifyTimeout(self) -> int:
         return int(os.getenv("VERIFY_TIMEOUT", setting.VERIFY_TIMEOUT))
 
     # @LazyProperty
@@ -62,7 +65,7 @@ class ConfigHandler(withMetaclass(Singleton)):
     #     return int(os.getenv("PROXY_CHECK_COUNT", setting.PROXY_CHECK_COUNT))
 
     @LazyProperty
-    def maxFailCount(self):
+    def maxFailCount(self) -> int:
         return int(os.getenv("MAX_FAIL_COUNT", setting.MAX_FAIL_COUNT))
 
     # @LazyProperty
@@ -70,7 +73,7 @@ class ConfigHandler(withMetaclass(Singleton)):
     #     return int(os.getenv("MAX_FAIL_RATE", setting.MAX_FAIL_RATE))
 
     @LazyProperty
-    def poolSizeMin(self):
+    def poolSizeMin(self) -> int:
         return int(os.getenv("POOL_SIZE_MIN", setting.POOL_SIZE_MIN))
 
     @LazyProperty
@@ -80,4 +83,20 @@ class ConfigHandler(withMetaclass(Singleton)):
     @LazyProperty
     def timezone(self):
         return os.getenv("TIMEZONE", setting.TIMEZONE)
+
+    # ############# scheduler config #################
+    @LazyProperty
+    def fetchInterval(self) -> int:
+        """代理抓取间隔（分钟）"""
+        return int(os.getenv("SCHEDULER_FETCH_INTERVAL", setting.SCHEDULER_FETCH_INTERVAL))
+
+    @LazyProperty
+    def checkInterval(self) -> int:
+        """代理检查间隔（分钟）"""
+        return int(os.getenv("SCHEDULER_CHECK_INTERVAL", setting.SCHEDULER_CHECK_INTERVAL))
+
+    @LazyProperty
+    def checkerThreadCount(self) -> int:
+        """代理检查线程数"""
+        return int(os.getenv("CHECKER_THREAD_COUNT", setting.CHECKER_THREAD_COUNT))
 

@@ -10,6 +10,7 @@
                    2019/08/06: 执行代理校验
                    2021/05/25: 分别校验http和https
                    2022/08/16: 获取代理Region信息
+                   2024/04/19: 改进异常处理，添加日志记录
 -------------------------------------------------
 """
 __author__ = 'JHao'
@@ -28,6 +29,7 @@ class DoValidator(object):
     """ 执行校验 """
 
     conf = ConfigHandler()
+    _log = LogHandler("validator")
 
     @classmethod
     def validator(cls, proxy, work_type):
@@ -78,12 +80,22 @@ class DoValidator(object):
 
     @classmethod
     def regionGetter(cls, proxy):
+        """获取代理地理位置，失败时返回空字符串"""
         try:
             url = 'https://searchplugin.csdn.net/api/v1/ip/get?ip=%s' % proxy.proxy.split(':')[0]
-            r = WebRequest().get(url=url, retry_time=1, timeout=2).json
-            return r['data']['address']
-        except:
-            return 'error'
+            r = WebRequest().get(url=url, retry_time=1, timeout=2)
+            if r is None or r.json is None:
+                cls._log.warning("regionGetter: failed to get region for %s" % proxy.proxy)
+                return ""
+            data = r.json
+            if not data or 'data' not in data:
+                cls._log.warning("regionGetter: invalid response for %s" % proxy.proxy)
+                return ""
+            address = data['data'].get('address')
+            return address if address else ""
+        except Exception as e:
+            cls._log.error("regionGetter error for %s: %s" % (proxy.proxy, str(e)))
+            return ""
 
 
 class _ThreadChecker(Thread):
@@ -146,8 +158,10 @@ def Checker(tp, queue):
     :param queue: Proxy Queue
     :return:
     """
+    conf = ConfigHandler()
+    thread_count = conf.checkerThreadCount
     thread_list = list()
-    for index in range(20):
+    for index in range(thread_count):
         thread_list.append(_ThreadChecker(tp, queue, "thread_%s" % str(index).zfill(2)))
 
     for thread in thread_list:

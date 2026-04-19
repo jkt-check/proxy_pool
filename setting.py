@@ -8,6 +8,7 @@
 -------------------------------------------------
    Change Activity:
                    2019/2/15:
+                   2024/4/19: 添加调度器配置项
 -------------------------------------------------
 """
 
@@ -81,6 +82,14 @@ POOL_SIZE_MIN = 20
 PROXY_REGION = True
 
 # ############# scheduler config #################
+# 代理抓取间隔（分钟）
+SCHEDULER_FETCH_INTERVAL = 4
+
+# 代理检查间隔（分钟）
+SCHEDULER_CHECK_INTERVAL = 2
+
+# 代理检查线程数
+CHECKER_THREAD_COUNT = 20
 
 # Set the timezone for the scheduler forcely (optional)
 # If it is running on a VM, and

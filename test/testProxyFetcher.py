@@ -8,14 +8,17 @@
 -------------------------------------------------
    Change Activity:
                    2020/6/23:
+                   2024/4/19: 添加环境依赖跳过标记
 -------------------------------------------------
 """
 __author__ = 'JHao'
 
+import pytest
 from fetcher.proxyFetcher import ProxyFetcher
 from handler.configHandler import ConfigHandler
 
 
+@pytest.mark.skip(reason="依赖外部代理网站，属于集成测试")
 def testProxyFetcher():
     conf = ConfigHandler()
     proxy_getter_functions = conf.fetchers

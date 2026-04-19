@@ -9,6 +9,7 @@
    Change Activity:
                    2019/08/05: proxyScheduler
                    2021/02/23: runProxyCheck时,剩余代理少于POOL_SIZE_MIN时执行抓取
+                   2024/04/19: 使用配置替代硬编码的魔术数字
 -------------------------------------------------
 """
 __author__ = 'JHao'
@@ -47,12 +48,14 @@ def __runProxyCheck():
 def runScheduler():
     __runProxyFetch()
 
-    timezone = ConfigHandler().timezone
+    conf = ConfigHandler()
+    timezone = conf.timezone
     scheduler_log = LogHandler("scheduler")
     scheduler = BlockingScheduler(logger=scheduler_log, timezone=timezone)
 
-    scheduler.add_job(__runProxyFetch, 'interval', minutes=4, id="proxy_fetch", name="proxy采集")
-    scheduler.add_job(__runProxyCheck, 'interval', minutes=2, id="proxy_check", name="proxy检查")
+    # 使用配置的间隔时间
+    scheduler.add_job(__runProxyFetch, 'interval', minutes=conf.fetchInterval, id="proxy_fetch", name="proxy采集")
+    scheduler.add_job(__runProxyCheck, 'interval', minutes=conf.checkInterval, id="proxy_check", name="proxy检查")
     executors = {
         'default': {'type': 'threadpool', 'max_workers': 20},
         'processpool': ProcessPoolExecutor(max_workers=5)

@@ -8,10 +8,12 @@
 -------------------------------------------------
    Change Activity:
                    2017/7/31:
+                   2024/4/19: 重试失败返回None而非伪造响应
 -------------------------------------------------
 """
 __author__ = 'J_hao'
 
+from typing import Optional
 from requests.models import Response
 from lxml import etree
 import requests
@@ -28,13 +30,14 @@ class WebRequest(object):
 
     def __init__(self, *args, **kwargs):
         self.log = LogHandler(self.name, file=False)
-        self.response = Response()
+        self.response: Optional[Response] = None
+        self._request_failed: bool = False
 
     @property
-    def user_agent(self):
+    def user_agent(self) -> str:
         """
         return an User-Agent at random
-        :return:
+        :return: User-Agent string
         """
         ua_list = [
             'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/30.0.1599.101',
@@ -49,17 +52,18 @@ class WebRequest(object):
         return random.choice(ua_list)
 
     @property
-    def header(self):
+    def header(self) -> dict:
         """
         basic header
-        :return:
+        :return: headers dict
         """
         return {'User-Agent': self.user_agent,
                 'Accept': '*/*',
                 'Connection': 'keep-alive',
                 'Accept-Language': 'zh-CN,zh;q=0.8'}
 
-    def get(self, url, header=None, retry_time=3, retry_interval=5, timeout=5, *args, **kwargs):
+    def get(self, url: str, header: Optional[dict] = None, retry_time: int = 3,
+            retry_interval: int = 5, timeout: int = 5, *args, **kwargs) -> Optional['WebRequest']:
         """
         get method
         :param url: target url
@@ -67,7 +71,7 @@ class WebRequest(object):
         :param retry_time: retry time
         :param retry_interval: retry interval
         :param timeout: network timeout
-        :return:
+        :return: WebRequest instance on success, None on failure
         """
         headers = self.header
         if header and isinstance(header, dict):
@@ -75,27 +79,37 @@ class WebRequest(object):
         while True:
             try:
                 self.response = requests.get(url, headers=headers, timeout=timeout, *args, **kwargs)
+                self._request_failed = False
                 return self
             except Exception as e:
                 self.log.error("requests: %s error: %s" % (url, str(e)))
                 retry_time -= 1
                 if retry_time <= 0:
-                    resp = Response()
-                    resp.status_code = 200
-                    return self
+                    self._request_failed = True
+                    self.log.error("requests: %s failed after all retries" % url)
+                    return None
                 self.log.info("retry %s second after" % retry_interval)
                 time.sleep(retry_interval)
 
     @property
-    def tree(self):
+    def tree(self) -> Optional[etree._Element]:
+        """返回 lxml 解析的 HTML 树，失败时返回 None"""
+        if self._request_failed or self.response is None or not self.response.content:
+            return None
         return etree.HTML(self.response.content)
 
     @property
-    def text(self):
+    def text(self) -> str:
+        """返回响应文本，失败时返回空字符串"""
+        if self._request_failed or self.response is None:
+            return ""
         return self.response.text
 
     @property
-    def json(self):
+    def json(self) -> dict:
+        """返回 JSON 解析结果，失败时返回空字典"""
+        if self._request_failed or self.response is None:
+            return {}
         try:
             return self.response.json()
         except Exception as e:
