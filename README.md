@@ -22,14 +22,13 @@ ProxyPool 爬虫代理IP池
 
 * 文档: [document](https://proxy-pool.readthedocs.io/zh/latest/) [![Documentation Status](https://readthedocs.org/projects/proxy-pool/badge/?version=latest)](https://proxy-pool.readthedocs.io/zh/latest/?badge=latest)
 
-* 支持版本: [![](https://img.shields.io/badge/Python-2.7-green.svg)](https://docs.python.org/2.7/)
-[![](https://img.shields.io/badge/Python-3.5-blue.svg)](https://docs.python.org/3.5/)
-[![](https://img.shields.io/badge/Python-3.6-blue.svg)](https://docs.python.org/3.6/)
+* 支持版本: [![](https://img.shields.io/badge/Python-3.6-blue.svg)](https://docs.python.org/3.6/)
 [![](https://img.shields.io/badge/Python-3.7-blue.svg)](https://docs.python.org/3.7/)
 [![](https://img.shields.io/badge/Python-3.8-blue.svg)](https://docs.python.org/3.8/)
 [![](https://img.shields.io/badge/Python-3.9-blue.svg)](https://docs.python.org/3.9/)
 [![](https://img.shields.io/badge/Python-3.10-blue.svg)](https://docs.python.org/3.10/)
 [![](https://img.shields.io/badge/Python-3.11-blue.svg)](https://docs.python.org/3.11/)
+[![](https://img.shields.io/badge/Python-3.12-blue.svg)](https://docs.python.org/3.12/)
 
 * 测试地址: http://demo.spiderpy.cn (勿压谢谢)
 
@@ -70,23 +69,55 @@ pip install -r requirements.txt
 # setting.py 为项目配置文件
 
 # 配置API服务
-
 HOST = "0.0.0.0"               # IP
-PORT = 5000                    # 监听端口
+PORT = 5010                    # 监听端口
 
 
 # 配置数据库
-
-DB_CONN = 'redis://:pwd@127.0.0.1:8888/0'
+# Redis: redis://:password@ip:port/db
+# SSDB:  ssdb://:password@ip:port
+DB_CONN = 'redis://:<password>@127.0.0.1:6379/0'
 
 
 # 配置 ProxyFetcher
-
 PROXY_FETCHER = [
     "freeProxy01",      # 这里是启用的代理抓取方法名，所有fetch方法位于fetcher/proxyFetcher.py
     "freeProxy02",
     # ....
 ]
+
+# 配置调度器
+SCHEDULER_FETCH_INTERVAL = 4   # 代理抓取间隔（分钟）
+SCHEDULER_CHECK_INTERVAL = 2   # 代理检查间隔（分钟）
+CHECKER_THREAD_COUNT = 20      # 代理检查线程数
+```
+
+##### 环境变量配置
+
+所有配置项均可通过环境变量覆盖：
+
+| 环境变量 | 说明 | 默认值 |
+|---------|------|--------|
+| HOST | API服务绑定IP | 0.0.0.0 |
+| PORT | API服务端口 | 5010 |
+| DB_CONN | 数据库连接URI | redis://:<password>@127.0.0.1:6379/0 |
+| TABLE_NAME | 代理表名 | use_proxy |
+| HTTP_URL | HTTP验证目标地址 | http://httpbin.org |
+| HTTPS_URL | HTTPS验证目标地址 | https://www.qq.com |
+| VERIFY_TIMEOUT | 代理验证超时(秒) | 10 |
+| MAX_FAIL_COUNT | 最大失败次数 | 0 |
+| POOL_SIZE_MIN | 最小代理数量 | 20 |
+| PROXY_REGION | 是否获取地域信息 | True |
+| TIMEZONE | 调度器时区 | Asia/Shanghai |
+| SCHEDULER_FETCH_INTERVAL | 抓取间隔(分钟) | 4 |
+| SCHEDULER_CHECK_INTERVAL | 检查间隔(分钟) | 2 |
+| CHECKER_THREAD_COUNT | 检查线程数 | 20 |
+
+```bash
+# 示例：通过环境变量配置
+export DB_CONN="redis://:mypassword@192.168.1.100:6379/0"
+export PORT="8080"
+python proxyPool.py server
 ```
 
 #### 启动项目:
@@ -130,7 +161,7 @@ docker-compose up -d
 | /pop | GET | 获取并删除一个代理| 可选参数: `?type=https` 过滤支持https的代理|
 | /all | GET | 获取所有代理 |可选参数: `?type=https` 过滤支持https的代理|
 | /count | GET | 查看代理数量 |None|
-| /delete | GET | 删除代理  |`?proxy=host:ip`|
+| /delete | GET | 删除代理  |`?proxy=ip:port` (如 `127.0.0.1:8080`)|
 
 
 * 爬虫使用
