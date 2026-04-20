@@ -3,6 +3,11 @@
 # 优先级：环境变量 > config.yaml > setting.py 默认值
 # 注意：所有配置项均可选，未设置的项将使用 setting.py 中的默认值
 #       键设为 null（如 proxy_region: ）等同于未设置，将使用默认值
+#
+# 使用方式：
+#   方式一：将此文件复制为 config.yaml 放在项目根目录，系统自动加载
+#   方式二：通过环境变量指定路径 PROXY_POOL_CONFIG=/path/to/config.yaml
+#   方式三：通过 CLI 选项指定 proxy-pool -c config.yaml server
 
 # ############### server config ###############
 # API 服务绑定地址
@@ -22,6 +27,7 @@
 
 # ############### proxy fetcher ###################
 # 启用的代理抓取方法列表
+# 环境变量方式：PROXY_FETCHER="freeProxy01,freeProxy03"（逗号分隔）
 # proxy_fetcher:
 #   - freeProxy01
 #   - freeProxy02
@@ -52,7 +58,8 @@
 # pool_size_min: 20
 
 # ############### proxy attributes ###################
-# 是否启用代理地域属性（true/false）
+# 是否启用代理地域属性
+# 可接受值: true/false, yes/no, on/off, 1/0
 # proxy_region: true
 
 # ############### scheduler config ###################

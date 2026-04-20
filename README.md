@@ -22,11 +22,7 @@ ProxyPool 爬虫代理IP池
 
 * 文档: [document](https://proxy-pool.readthedocs.io/zh/latest/) [![Documentation Status](https://readthedocs.org/projects/proxy-pool/badge/?version=latest)](https://proxy-pool.readthedocs.io/zh/latest/?badge=latest)
 
-* 支持版本: [![](https://img.shields.io/badge/Python-3.6-blue.svg)](https://docs.python.org/3.6/)
-[![](https://img.shields.io/badge/Python-3.7-blue.svg)](https://docs.python.org/3.7/)
-[![](https://img.shields.io/badge/Python-3.8-blue.svg)](https://docs.python.org/3.8/)
-[![](https://img.shields.io/badge/Python-3.9-blue.svg)](https://docs.python.org/3.9/)
-[![](https://img.shields.io/badge/Python-3.10-blue.svg)](https://docs.python.org/3.10/)
+* 支持版本: [![](https://img.shields.io/badge/Python-3.10-blue.svg)](https://docs.python.org/3.10/)
 [![](https://img.shields.io/badge/Python-3.11-blue.svg)](https://docs.python.org/3.11/)
 [![](https://img.shields.io/badge/Python-3.12-blue.svg)](https://docs.python.org/3.12/)
 
@@ -64,6 +60,9 @@ pip install -r requirements.txt
 
 ##### 更新配置:
 
+配置优先级：**环境变量 > YAML 配置文件 > setting.py 默认值**
+
+**方式一：修改 setting.py（默认）**
 
 ```python
 # setting.py 为项目配置文件
@@ -92,12 +91,33 @@ SCHEDULER_CHECK_INTERVAL = 2   # 代理检查间隔（分钟）
 CHECKER_THREAD_COUNT = 20      # 代理检查线程数
 ```
 
-##### 环境变量配置
+**方式二：使用 YAML 配置文件（推荐）**
 
-所有配置项均可通过环境变量覆盖：
+复制示例文件并按需修改：
+
+```bash
+cp config.yaml.example config.yaml
+# 编辑 config.yaml，取消注释需要修改的配置项
+```
+
+系统按以下顺序查找配置文件（找到即停止）：
+1. `PROXY_POOL_CONFIG` 环境变量指定的路径
+2. 当前目录下的 `config.yaml`
+3. `/etc/proxy-pool/config.yaml`
+
+也可通过 CLI 选项指定：
+
+```bash
+proxy-pool -c /path/to/config.yaml server
+```
+
+**方式三：通过环境变量覆盖**
+
+所有配置项均可通过环境变量覆盖（优先级最高）：
 
 | 环境变量 | 说明 | 默认值 |
 |---------|------|--------|
+| PROXY_POOL_CONFIG | YAML 配置文件路径 | 自动查找 config.yaml |
 | HOST | API服务绑定IP | 0.0.0.0 |
 | PORT | API服务端口 | 5010 |
 | DB_CONN | 数据库连接URI | redis://:<password>@127.0.0.1:6379/0 |
@@ -112,11 +132,13 @@ CHECKER_THREAD_COUNT = 20      # 代理检查线程数
 | SCHEDULER_FETCH_INTERVAL | 抓取间隔(分钟) | 4 |
 | SCHEDULER_CHECK_INTERVAL | 检查间隔(分钟) | 2 |
 | CHECKER_THREAD_COUNT | 检查线程数 | 20 |
+| PROXY_FETCHER | 启用的抓取方法(逗号分隔) | 全部 |
 
 ```bash
 # 示例：通过环境变量配置
 export DB_CONN="redis://:mypassword@192.168.1.100:6379/0"
 export PORT="8080"
+export PROXY_FETCHER="freeProxy01,freeProxy05,freeProxy08"
 python proxyPool.py server
 ```
 
@@ -132,6 +154,9 @@ python proxyPool.py schedule
 # 启动webApi服务
 python proxyPool.py server
 
+# 使用自定义配置文件启动
+proxy-pool -c config.yaml server
+proxy-pool -c /etc/proxy-pool/config.yaml schedule
 ```
 
 ### Docker Image
@@ -140,6 +165,11 @@ python proxyPool.py server
 docker pull jhao104/proxy_pool
 
 docker run --env DB_CONN=redis://:password@ip:port/0 -p 5010:5010 jhao104/proxy_pool:latest
+
+# 使用 YAML 配置文件
+docker run --env PROXY_POOL_CONFIG=/etc/proxy-pool/config.yaml \
+  -v ./config.yaml:/etc/proxy-pool/config.yaml:ro \
+  -p 5010:5010 jhao104/proxy_pool:latest
 ```
 ### docker-compose
 
