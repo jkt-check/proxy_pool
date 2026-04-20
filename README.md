@@ -127,7 +127,7 @@ proxy-pool -c /path/to/config.yaml server
 | VERIFY_TIMEOUT | 代理验证超时(秒) | 10 |
 | MAX_FAIL_COUNT | 最大失败次数 | 0 |
 | POOL_SIZE_MIN | 最小代理数量 | 20 |
-| PROXY_REGION | 是否获取地域信息(true/false/yes/no) | true |
+| PROXY_REGION | 是否获取地域信息(true/false/yes/no/on/off/1/0) | true |
 | TIMEZONE | 调度器时区 | Asia/Shanghai |
 | SCHEDULER_FETCH_INTERVAL | 抓取间隔(分钟) | 4 |
 | SCHEDULER_CHECK_INTERVAL | 检查间隔(分钟) | 2 |

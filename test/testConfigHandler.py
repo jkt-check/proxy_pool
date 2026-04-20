@@ -78,12 +78,7 @@ class TestConfigHandlerTypes:
         _reset_config()
 
         with patch.dict(os.environ, {"PORT": "8888"}):
-            import importlib
-            import handler.configHandler as ch_module
-            importlib.reload(ch_module)
-            _Singleton._inst.pop(ch_module.ConfigHandler, None)
-
-            conf = ch_module.ConfigHandler()
+            conf = ConfigHandler()
             port = conf.serverPort
             assert isinstance(port, int), f"从环境变量读取的 PORT 应为 int 类型，实际为 {type(port)}"
             assert port == 8888
@@ -281,5 +276,59 @@ class TestConfigHandlerConverterFallback:
             conf = ConfigHandler()
             import setting
             assert conf.proxyRegion == setting.PROXY_REGION
+        finally:
+            self._cleanup_yaml(yaml_path)
+
+    def test_empty_env_var_falls_to_default(self):
+        """空字符串环境变量应降级到默认值"""
+        os.environ.pop(self.ENV_KEY, None)
+        os.environ["HOST"] = ""
+
+        try:
+            _reset_config()
+            conf = ConfigHandler()
+            import setting
+            assert conf.serverHost == setting.HOST
+        finally:
+            del os.environ["HOST"]
+
+    def test_yaml_bool_to_int_falls_to_default(self):
+        """YAML port: yes (bool True) 不应静默转为 1"""
+        yaml_path = self._write_yaml('port: yes\n')
+        os.environ[self.ENV_KEY] = yaml_path
+        os.environ.pop("PORT", None)
+
+        try:
+            _reset_config()
+            conf = ConfigHandler()
+            import setting
+            assert conf.serverPort == setting.PORT
+        finally:
+            self._cleanup_yaml(yaml_path)
+
+    def test_empty_proxy_fetcher_env_falls_to_default(self):
+        """空字符串 PROXY_FETCHER 应降级到默认值"""
+        os.environ.pop(self.ENV_KEY, None)
+        os.environ["PROXY_FETCHER"] = ""
+
+        try:
+            _reset_config()
+            conf = ConfigHandler()
+            import setting
+            assert conf.fetchers == setting.PROXY_FETCHER
+        finally:
+            del os.environ["PROXY_FETCHER"]
+
+    def test_fetchers_yaml_non_list_falls_to_default(self):
+        """YAML proxy_fetcher 为非列表类型时应降级到默认值"""
+        yaml_path = self._write_yaml('proxy_fetcher: "freeProxy01"\n')
+        os.environ[self.ENV_KEY] = yaml_path
+        os.environ.pop("PROXY_FETCHER", None)
+
+        try:
+            _reset_config()
+            conf = ConfigHandler()
+            import setting
+            assert conf.fetchers == setting.PROXY_FETCHER
         finally:
             self._cleanup_yaml(yaml_path)

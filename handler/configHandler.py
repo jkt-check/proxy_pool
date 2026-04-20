@@ -63,7 +63,9 @@ class ConfigHandler(withMetaclass(Singleton)):
         # 1. 环境变量
         env_value = os.environ.get(env_key)
         if env_value is not None:
-            if converter is not None:
+            if env_value == "":
+                _logger.warning("环境变量 %s 为空字符串，已忽略", env_key)
+            elif converter is not None:
                 try:
                     return converter(env_value)
                 except (ValueError, TypeError) as e:
@@ -76,11 +78,16 @@ class ConfigHandler(withMetaclass(Singleton)):
         yaml_value = self.yaml_config.get(yaml_key)
         if yaml_value is not None:
             if converter is not None:
-                try:
-                    return converter(yaml_value)
-                except (ValueError, TypeError) as e:
-                    _logger.warning("YAML 配置 %s=%r 转换失败: %s，将降级到默认值",
-                                     yaml_key, yaml_value, e)
+                # 防止 YAML 原生布尔被 int() 静默转换（如 port: yes -> int(True) == 1）
+                if converter is int and isinstance(yaml_value, bool):
+                    _logger.warning("YAML 配置 %s=%r 类型不匹配，期望整数，已忽略",
+                                     yaml_key, yaml_value)
+                else:
+                    try:
+                        return converter(yaml_value)
+                    except (ValueError, TypeError) as e:
+                        _logger.warning("YAML 配置 %s=%r 转换失败: %s，将降级到默认值",
+                                         yaml_key, yaml_value, e)
             else:
                 return yaml_value
 
@@ -116,7 +123,10 @@ class ConfigHandler(withMetaclass(Singleton)):
         # 1. 环境变量
         env_value = os.environ.get(env_key)
         if env_value is not None:
-            return [s.strip() for s in env_value.split(",") if s.strip()]
+            if env_value == "":
+                _logger.warning("环境变量 %s 为空字符串，已忽略", env_key)
+            else:
+                return [s.strip() for s in env_value.split(",") if s.strip()]
 
         # 2. YAML 配置文件
         yaml_value = self.yaml_config.get(yaml_key)
