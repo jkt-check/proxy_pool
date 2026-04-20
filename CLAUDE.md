@@ -66,16 +66,20 @@ Configuration uses three-level priority: **env vars > YAML config file > setting
 ### Config Handler (`handler/configHandler.py`)
 - Singleton with `LazyProperty` for cached access
 - `_get(env_key, yaml_key, default, converter)` implements three-level priority
+- Empty-string env vars are ignored (logged as warning) and fall through to next priority
 - Converter errors (e.g., `PROXY_REGION=enabled`) are caught, logged as warnings, and fall through to next priority
-- `fetchers` property has special handling: env var as comma-separated string, YAML as list
+- YAML bool-to-int coercion is blocked (e.g., `port: yes` → `int(True)==1` is rejected with warning)
+- `fetchers` property has special handling: env var as comma-separated string, YAML as list, empty env var falls through to defaults
 
 ### Config Utils (`util/configUtils.py`)
-- `parse_bool(value)`: Strict bool parsing — fixes `bool("False") == True` bug. Accepts true/1/yes/on and false/0/no/off; raises `ValueError` for unrecognized values
+- `parse_bool(value)`: Strict bool parsing — fixes `bool("False") == True` bug. Accepts true/1/yes/on and false/0/no/off; raises `ValueError` for unrecognized strings, non-0/1 integers, and other types
+- Important: `isinstance(value, bool)` is checked before `isinstance(value, int)` since `bool` is a subclass of `int` in Python
 
 ### YAML Config (`util/yamlConfig.py`)
 - `set_config_path(path)`: Sets `PROXY_POOL_CONFIG` env var (called by CLI `--config`)
 - `load_yaml_config()`: Lazy-loaded by ConfigHandler, uses `yaml.safe_load`
 - Config file search order: `PROXY_POOL_CONFIG` env var → `config.yaml` → `/etc/proxy-pool/config.yaml`
+- Handles `yaml.YAMLError`, `OSError`, and `UnicodeDecodeError` gracefully with warnings
 
 ## Architecture
 
