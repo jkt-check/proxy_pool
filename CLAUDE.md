@@ -21,6 +21,9 @@ python proxyPool.py schedule
 # Start the API server (default: http://0.0.0.0:5010)
 python proxyPool.py server
 
+# Start with a YAML config file
+proxy-pool -c config.yaml server
+
 # Start both (Docker entrypoint)
 ./start.sh
 ```
@@ -43,12 +46,36 @@ python -m test.testProxyValidator
 
 ## Configuration
 
-All configuration is in `setting.py`:
-- `DB_CONN`: Database connection URI (format: `redis://:password@host:port/db`)
-- `HOST`/`PORT`: API server bind address
-- `PROXY_FETCHER`: List of fetcher method names to enable
-- `VERIFY_TIMEOUT`: Proxy validation timeout (seconds)
-- `POOL_SIZE_MIN`: Minimum proxy count before triggering fetch
+Configuration uses three-level priority: **env vars > YAML config file > setting.py defaults**.
+
+### Config Sources
+
+1. **setting.py** — hardcoded defaults, always present
+2. **YAML config file** — `config.yaml` in project root, `/etc/proxy-pool/config.yaml`, or path specified by `PROXY_POOL_CONFIG` env var / `--config` CLI option. See `config.yaml.example` for all available keys.
+3. **Environment variables** — highest priority, override both YAML and defaults. `PROXY_FETCHER` accepts comma-separated values (e.g., `PROXY_FETCHER=freeProxy01,freeProxy05`).
+
+### Key Config Items
+- `DB_CONN` / `db_conn`: Database connection URI (format: `redis://:password@host:port/db`)
+- `HOST`/`host` / `PORT`/`port`: API server bind address
+- `PROXY_FETCHER`/`proxy_fetcher`: List of fetcher method names to enable
+- `VERIFY_TIMEOUT`/`verify_timeout`: Proxy validation timeout (seconds)
+- `POOL_SIZE_MIN`/`pool_size_min`: Minimum proxy count before triggering fetch
+- `PROXY_REGION`/`proxy_region`: Enable geo-region lookup (accepts: true/false, yes/no, on/off, 1/0)
+- `PROXY_POOL_CONFIG`: Path to YAML config file
+
+### Config Handler (`handler/configHandler.py`)
+- Singleton with `LazyProperty` for cached access
+- `_get(env_key, yaml_key, default, converter)` implements three-level priority
+- Converter errors (e.g., `PROXY_REGION=enabled`) are caught, logged as warnings, and fall through to next priority
+- `fetchers` property has special handling: env var as comma-separated string, YAML as list
+
+### Config Utils (`util/configUtils.py`)
+- `parse_bool(value)`: Strict bool parsing — fixes `bool("False") == True` bug. Accepts true/1/yes/on and false/0/no/off; raises `ValueError` for unrecognized values
+
+### YAML Config (`util/yamlConfig.py`)
+- `set_config_path(path)`: Sets `PROXY_POOL_CONFIG` env var (called by CLI `--config`)
+- `load_yaml_config()`: Lazy-loaded by ConfigHandler, uses `yaml.safe_load`
+- Config file search order: `PROXY_POOL_CONFIG` env var → `config.yaml` → `/etc/proxy-pool/config.yaml`
 
 ## Architecture
 
@@ -56,6 +83,7 @@ All configuration is in `setting.py`:
 ┌─────────────────────────────────────────────────────────────┐
 │                    Entry Point (proxyPool.py)                │
 │                    CLI using Click framework                 │
+│                    --config/-c for YAML config path          │
 └─────────────────────┬───────────────────────────────────────┘
                       │
         ┌─────────────┴─────────────┐
@@ -92,6 +120,14 @@ All configuration is in `setting.py`:
                         │
                         ▼
 ┌───────────────────────────────────────────────┐
+│          ConfigHandler                         │
+│       handler/configHandler.py                │
+│  env > YAML > setting.py (three-level)       │
+│  Singleton + LazyProperty                     │
+└───────────────────────┬───────────────────────┘
+                        │
+                        ▼
+┌───────────────────────────────────────────────┐
 │                DbClient                        │
 │             db/dbClient.py                    │
 │      Factory pattern for DB backends          │
@@ -110,7 +146,7 @@ All configuration is in `setting.py`:
 - Static methods that yield proxies from various free proxy websites
 - Each method returns `host:port` format strings
 - Add new fetchers by creating `freeProxyXX()` static methods
-- Register new fetchers in `setting.py` `PROXY_FETCHER` list
+- Register new fetchers in `setting.py` `PROXY_FETCHER` list, `config.yaml` `proxy_fetcher`, or `PROXY_FETCHER` env var (comma-separated)
 
 ### Validation (`helper/validator.py`)
 - `ProxyValidator`: Decorator-based validator registration
@@ -144,7 +180,7 @@ def freeProxyCustom():
     for proxy in ["x.x.x.x:8080"]:
         yield proxy
 ```
-2. Add method name to `PROXY_FETCHER` list in `setting.py`
+2. Add method name to `PROXY_FETCHER` list in `setting.py`, `proxy_fetcher` in `config.yaml`, or `PROXY_FETCHER` env var
 
 ### Add Custom Validator
 ```python
