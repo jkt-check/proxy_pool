@@ -127,7 +127,7 @@ proxy-pool -c /path/to/config.yaml server
 | VERIFY_TIMEOUT | 代理验证超时(秒) | 10 |
 | MAX_FAIL_COUNT | 最大失败次数 | 0 |
 | POOL_SIZE_MIN | 最小代理数量 | 20 |
-| PROXY_REGION | 是否获取地域信息 | True |
+| PROXY_REGION | 是否获取地域信息(true/false/yes/no) | true |
 | TIMEZONE | 调度器时区 | Asia/Shanghai |
 | SCHEDULER_FETCH_INTERVAL | 抓取间隔(分钟) | 4 |
 | SCHEDULER_CHECK_INTERVAL | 检查间隔(分钟) | 2 |
@@ -171,6 +171,7 @@ docker run --env PROXY_POOL_CONFIG=/etc/proxy-pool/config.yaml \
   -v ./config.yaml:/etc/proxy-pool/config.yaml:ro \
   -p 5010:5010 jhao104/proxy_pool:latest
 ```
+
 ### docker-compose
 
 项目目录下运行: 
@@ -251,9 +252,9 @@ class ProxyFetcher(object):
         # 确保每个proxy都是 host:ip正确的格式返回
 ```
 
-* 2、添加好方法后，修改[setting.py](https://github.com/jhao104/proxy_pool/blob/1a3666283806a22ef287fba1a8efab7b94e94bac/setting.py#L47)文件中的`PROXY_FETCHER`项：
+* 2、添加好方法后，在`PROXY_FETCHER`中注册方法名：
 
-　　在`PROXY_FETCHER`下添加自定义方法的名字:
+　　在 `setting.py` 的 `PROXY_FETCHER` 列表中添加，或在 `config.yaml` 的 `proxy_fetcher` 中添加，或通过环境变量 `PROXY_FETCHER=freeProxy01,freeProxyCustom1` 指定：
 
 ```python
 PROXY_FETCHER = [

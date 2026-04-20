@@ -59,6 +59,7 @@
 
 # ############### proxy attributes ###################
 # 是否启用代理地域属性
+# YAML 中 true/false 为原生布尔值（无需引号），也接受 yes/no、on/off、1/0
 # 可接受值: true/false, yes/no, on/off, 1/0
 # proxy_region: true
 
