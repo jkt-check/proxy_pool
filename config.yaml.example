@@ -1,0 +1,69 @@
+# ProxyPool YAML 配置文件示例
+# 复制此文件为 config.yaml 并按需修改
+# 优先级：环境变量 > config.yaml > setting.py 默认值
+# 注意：所有配置项均可选，未设置的项将使用 setting.py 中的默认值
+#       键设为 null（如 proxy_region: ）等同于未设置，将使用默认值
+
+# ############### server config ###############
+# API 服务绑定地址
+# host: "0.0.0.0"
+
+# API 服务端口
+# port: 5010
+
+# ############### database config ###################
+# 数据库连接 URI
+# Redis: redis://:password@ip:port/db
+# SSDB:  ssdb://:password@ip:port
+# db_conn: "redis://@127.0.0.1:6379/0"
+
+# 代理表名
+# table_name: "use_proxy"
+
+# ############### proxy fetcher ###################
+# 启用的代理抓取方法列表
+# proxy_fetcher:
+#   - freeProxy01
+#   - freeProxy02
+#   - freeProxy03
+#   - freeProxy04
+#   - freeProxy05
+#   - freeProxy06
+#   - freeProxy07
+#   - freeProxy08
+#   - freeProxy09
+#   - freeProxy10
+#   - freeProxy11
+
+# ############### proxy validator ###################
+# HTTP 代理验证目标网站
+# http_url: "http://httpbin.org"
+
+# HTTPS 代理验证目标网站
+# https_url: "https://www.qq.com"
+
+# 代理验证超时时间（秒）
+# verify_timeout: 10
+
+# 最大失败次数，超过则剔除代理
+# max_fail_count: 0
+
+# 代理池最小数量，低于此值触发抓取
+# pool_size_min: 20
+
+# ############### proxy attributes ###################
+# 是否启用代理地域属性（true/false）
+# proxy_region: true
+
+# ############### scheduler config ###################
+# 代理抓取间隔（分钟）
+# scheduler_fetch_interval: 4
+
+# 代理检查间隔（分钟）
+# scheduler_check_interval: 2
+
+# 代理检查线程数
+# checker_thread_count: 20
+
+# 时区设置
+# timezone: "Asia/Shanghai"
