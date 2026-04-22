@@ -22,6 +22,13 @@ from redis import Redis
 import json
 
 
+_GETDEL_SCRIPT = """
+local v = redis.call('GET', KEYS[1])
+redis.call('DEL', KEYS[1])
+return v
+"""
+
+
 class RedisClient(object):
     """
     Redis client
@@ -30,6 +37,8 @@ class RedisClient(object):
     key为ip:port, value为代理属性的字典;
 
     """
+
+    _getdel_script = None
 
     def __init__(self, **kwargs):
         """
@@ -137,6 +146,31 @@ class RedisClient(object):
         :return:
         """
         self.name = name
+
+    def setSignal(self, key, value, ex=None, nx=False):
+        """设置信号键，用于跨进程通信。nx=True 时仅当键不存在才设置"""
+        return self.__conn.set(key, value, ex=ex, nx=nx)
+
+    def getSignal(self, key):
+        """原子获取信号键值并删除（Lua 脚本，防止并发重复读取）"""
+        try:
+            if self._getdel_script is None:
+                self._getdel_script = self.__conn.register_script(_GETDEL_SCRIPT)
+            return self._getdel_script(keys=[key])
+        except Exception:
+            # Fallback: 非 Lua 环境（如旧版 SSDB）降级为 GET+DEL
+            v = self.__conn.get(key)
+            if v is not None:
+                self.__conn.delete(key)
+            return v
+
+    def existsSignal(self, key):
+        """检查信号键是否存在（不消费）"""
+        return self.__conn.exists(key)
+
+    def deleteSignal(self, key):
+        """删除信号键"""
+        return self.__conn.delete(key)
 
     def test(self):
         log = LogHandler('redis_client')

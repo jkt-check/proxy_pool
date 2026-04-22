@@ -54,5 +54,5 @@ class TestProxyApi:
         pass
 
     def test_refresh_returns_success(self):
-        """GET /refresh 应返回成功"""
+        """GET /refresh 应通过 Redis 信号请求刷新"""
         pass

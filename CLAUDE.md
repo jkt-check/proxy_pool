@@ -60,8 +60,9 @@ Configuration uses three-level priority: **env vars > YAML config file > setting
 - `PROXY_FETCHER`/`proxy_fetcher`: List of fetcher method names to enable
 - `VERIFY_TIMEOUT`/`verify_timeout`: Proxy validation timeout (seconds)
 - `POOL_SIZE_MIN`/`pool_size_min`: Minimum proxy count before triggering fetch
-- `PROXY_REGION`/`proxy_region`: Enable geo-region lookup (accepts: true/false, yes/no, on/off, 1/0)
+- `PROXY_REGION`/`proxy_region`: Enable geo-region lookup via ip-api.com (accepts: true/false, yes/no, on/off, 1/0; free tier: 45 req/min)
 - `PROXY_POOL_CONFIG`: Path to YAML config file
+- `REFRESH_SIGNAL_KEY`/`refresh_signal_key`: Redis key for cross-process refresh signal
 
 ### Config Handler (`handler/configHandler.py`)
 - Singleton with `LazyProperty` for cached access
@@ -145,6 +146,7 @@ Configuration uses three-level priority: **env vars > YAML config file > setting
 - `DbClient`: Factory class that instantiates the appropriate client based on `DB_CONN` scheme
 - `RedisClient`: Redis hash-based storage (key: `ip:port`, value: proxy JSON)
 - Supports Redis and SSDB backends
+- Signal methods (`setSignal`, `getSignal`, `existsSignal`, `deleteSignal`): cross-process communication via Redis keys
 
 ### Fetcher (`fetcher/proxyFetcher.py`)
 - Static methods that yield proxies from various free proxy websites
@@ -165,14 +167,20 @@ Configuration uses three-level priority: **env vars > YAML config file > setting
 - `runScheduler()`: APScheduler-based periodic tasks
 - Proxy fetch: every 4 minutes
 - Proxy check: every 2 minutes
+- Checks Redis refresh signal (from `/refresh/` API) on each check cycle
 
 ### API (`api/proxyApi.py`)
 - `GET /`: API documentation
 - `GET /get?type=https`: Get random proxy
 - `GET /pop?type=https`: Get and remove proxy
 - `GET /all?type=https`: Get all proxies
-- `GET /count`: Get proxy statistics
+- `GET /count`: Get proxy statistics (includes `https_note` when 0 HTTPS proxies)
 - `GET /delete?proxy=ip:port`: Remove specific proxy
+- `GET /refresh`: Request a proxy pool refresh (async via Redis signal to scheduler)
+
+### Known Limitations
+- **HTTPS proxies**: Free proxy sources rarely support HTTPS CONNECT tunneling. Pool will typically have 0 HTTPS proxies. This is a fundamental limitation of free proxies, not a validation bug.
+- **Region API rate limit**: ip-api.com free tier allows 45 requests/minute. Under heavy concurrent validation, some region lookups may be rate-limited (returns empty string, logged as warning).
 
 ## Extending the System
 

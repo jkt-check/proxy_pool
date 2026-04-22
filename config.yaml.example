@@ -46,7 +46,9 @@
 # http_url: "http://httpbin.org"
 
 # HTTPS 代理验证目标网站
-# https_url: "https://www.qq.com"
+# 注意: 免费代理源极少支持 HTTPS CONNECT 隧道，池中 HTTPS 代理通常为 0
+# 这是免费代理的固有局限，而非验证逻辑问题
+# https_url: "https://httpbin.org/ip"
 
 # 代理验证超时时间（秒）
 # verify_timeout: 10
@@ -72,6 +74,9 @@
 
 # 代理检查线程数
 # checker_thread_count: 20
+
+# API 触发刷新的 Redis 信号键名
+# refresh_signal_key: "proxy_pool:refresh_requested"
 
 # 时区设置
 # timezone: "Asia/Shanghai"

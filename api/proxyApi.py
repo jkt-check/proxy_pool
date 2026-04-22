@@ -46,8 +46,8 @@ api_list = [
     {"url": "/pop", "params": "", "desc": "get and delete a proxy"},
     {"url": "/delete", "params": "proxy: 'e.g. 127.0.0.1:8080'", "desc": "delete an unable proxy"},
     {"url": "/all", "params": "type: ''https'|''", "desc": "get all proxy from proxy pool"},
-    {"url": "/count", "params": "", "desc": "return proxy count"}
-    # 'refresh': 'refresh proxy pool',
+    {"url": "/count", "params": "", "desc": "return proxy count"},
+    {"url": "/refresh", "params": "", "desc": "request a proxy pool refresh (async via scheduler)"},
 ]
 
 
@@ -72,8 +72,14 @@ def pop():
 
 @app.route('/refresh/')
 def refresh():
-    # TODO refresh会有守护程序定时执行，由api直接调用性能较差，暂不使用
-    return 'success'
+    try:
+        ttl = max(300, conf.checkInterval * 60 * 3)
+        was_set = proxy_handler.db.setSignal(conf.refreshSignalKey, "1", ex=ttl, nx=True)
+        if not was_set:
+            return {"code": 0, "msg": "refresh already pending"}
+        return {"code": 1, "msg": "refresh requested"}
+    except Exception as e:
+        return {"code": -1, "msg": "failed to set refresh signal: %s" % str(e)}
 
 
 @app.route('/all/')
@@ -86,6 +92,8 @@ def getAll():
 @app.route('/delete/', methods=['GET'])
 def delete():
     proxy = request.args.get('proxy')
+    if not proxy:
+        return {"code": -1, "msg": "proxy parameter is required"}
     status = proxy_handler.delete(Proxy(proxy))
     return {"code": 0, "src": status}
 
@@ -100,7 +108,10 @@ def getCount():
         http_type_dict[http_type] = http_type_dict.get(http_type, 0) + 1
         for source in proxy.source.split('/'):
             source_dict[source] = source_dict.get(source, 0) + 1
-    return {"http_type": http_type_dict, "source": source_dict, "count": len(proxies)}
+    result = {"http_type": http_type_dict, "source": source_dict, "count": len(proxies)}
+    if http_type_dict.get('https', 0) == 0:
+        result["https_note"] = "Free proxies rarely support HTTPS CONNECT tunneling; 0 HTTPS proxies is expected"
+    return result
 
 
 def runFlask():

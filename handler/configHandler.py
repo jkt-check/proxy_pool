@@ -43,6 +43,7 @@ _CONFIG_MAP = {
     "fetchInterval":    ("SCHEDULER_FETCH_INTERVAL", "scheduler_fetch_interval", int),
     "checkInterval":    ("SCHEDULER_CHECK_INTERVAL", "scheduler_check_interval", int),
     "checkerThreadCount": ("CHECKER_THREAD_COUNT", "checker_thread_count", int),
+    "refreshSignalKey": ("REFRESH_SIGNAL_KEY", "refresh_signal_key", None),
 }
 
 
@@ -192,3 +193,9 @@ class ConfigHandler(withMetaclass(Singleton)):
         """代理检查线程数"""
         env_key, yaml_key, converter = _CONFIG_MAP["checkerThreadCount"]
         return self._get(env_key, yaml_key, setting.CHECKER_THREAD_COUNT, converter)
+
+    @LazyProperty
+    def refreshSignalKey(self):
+        """API 触发刷新的 Redis 信号键名"""
+        env_key, yaml_key, converter = _CONFIG_MAP["refreshSignalKey"]
+        return self._get(env_key, yaml_key, setting.REFRESH_SIGNAL_KEY, converter)

@@ -66,7 +66,10 @@ PROXY_FETCHER = [
 # 用于验证代理是否能正常访问 HTTP/HTTPS 网站
 HTTP_URL = "http://httpbin.org"
 
-HTTPS_URL = "https://www.qq.com"
+# HTTPS 代理验证目标网站
+# 注意: 免费代理源极少支持 HTTPS CONNECT 隧道，因此池中 HTTPS 代理通常为 0
+# 这是免费代理的固有局限，而非验证逻辑问题
+HTTPS_URL = "https://httpbin.org/ip"
 
 # 代理验证时超时时间（秒）
 VERIFY_TIMEOUT = 10
@@ -83,7 +86,7 @@ POOL_SIZE_MIN = 20
 
 # ############# proxy attributes #################
 # 是否启用代理地域属性
-# True: 获取代理 IP 的地理位置信息（通过 CSDN API）
+# True: 获取代理 IP 的地理位置信息（通过 ip-api.com，免费限额 45次/分钟）
 # False: 不获取地域信息，可提高验证速度
 PROXY_REGION = True
 
@@ -99,6 +102,9 @@ SCHEDULER_CHECK_INTERVAL = 2
 # 代理检查线程数
 # 建议: 10-50，根据服务器性能调整
 CHECKER_THREAD_COUNT = 20
+
+# API 触发刷新的 Redis 信号键名
+REFRESH_SIGNAL_KEY = 'proxy_pool:refresh_requested'
 
 # Set the timezone for the scheduler forcely (optional)
 # If it is running on a VM, and

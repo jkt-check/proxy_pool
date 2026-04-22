@@ -118,3 +118,15 @@ class DbClient(withMetaclass(Singleton)):
 
     def test(self):
         return self.client.test()
+
+    def setSignal(self, key, value, ex=None, nx=False):
+        return self.client.setSignal(key, value, ex=ex, nx=nx)
+
+    def getSignal(self, key):
+        return self.client.getSignal(key)
+
+    def deleteSignal(self, key):
+        return self.client.deleteSignal(key)
+
+    def existsSignal(self, key):
+        return self.client.existsSignal(key)

@@ -16,13 +16,38 @@
 __author__ = 'JHao'
 
 from util.six import Empty
-from threading import Thread
+from threading import Thread, Lock
 from datetime import datetime
 from util.webRequest import WebRequest
 from handler.logHandler import LogHandler
 from helper.validator import ProxyValidator
 from handler.proxyHandler import ProxyHandler
 from handler.configHandler import ConfigHandler
+
+
+class _RateLimiter(object):
+    """滑动窗口速率限制器，用于限制 ip-api.com 调用频率"""
+
+    def __init__(self, max_calls, period_seconds):
+        self._max_calls = max_calls
+        self._period = period_seconds
+        self._lock = Lock()
+        self._timestamps = []
+
+    def allow(self):
+        """检查是否允许调用，返回 True/False"""
+        with self._lock:
+            now = datetime.now().timestamp()
+            # 清除过期的时间戳
+            cutoff = now - self._period
+            self._timestamps = [t for t in self._timestamps if t > cutoff]
+            if len(self._timestamps) >= self._max_calls:
+                return False
+            self._timestamps.append(now)
+            return True
+
+
+_region_limiter = _RateLimiter(40, 60)  # ip-api.com 免费限额 45次/分钟，留 5 次余量
 
 
 class DoValidator(object):
@@ -80,19 +105,27 @@ class DoValidator(object):
 
     @classmethod
     def regionGetter(cls, proxy):
-        """获取代理地理位置，失败时返回空字符串"""
+        """获取代理地理位置（通过 ip-api.com），失败时返回空字符串
+        内置速率限制器（40次/分钟），超出限额时跳过查询并记录日志
+        """
+        if not _region_limiter.allow():
+            cls._log.debug("regionGetter: rate limit exceeded, skipping %s" % proxy.proxy)
+            return ""
         try:
-            url = 'https://searchplugin.csdn.net/api/v1/ip/get?ip=%s' % proxy.proxy.split(':')[0]
-            r = WebRequest().get(url=url, retry_time=1, timeout=2)
-            if r is None or r.json is None:
+            ip = proxy.proxy.split(':')[0]
+            url = 'http://ip-api.com/json/%s?lang=zh-CN' % ip
+            r = WebRequest().get(url=url, retry_time=0, timeout=3, retry_interval=0)
+            if r is None:
                 cls._log.warning("regionGetter: failed to get region for %s" % proxy.proxy)
                 return ""
             data = r.json
-            if not data or 'data' not in data:
-                cls._log.warning("regionGetter: invalid response for %s" % proxy.proxy)
+            if not data or data.get('status') != 'success':
+                reason = data.get('message', 'unknown') if data else 'empty response'
+                cls._log.warning("regionGetter: invalid response for %s: %s" % (proxy.proxy, reason))
                 return ""
-            address = data['data'].get('address')
-            return address if address else ""
+            parts = [data.get('country', ''), data.get('regionName', ''), data.get('city', '')]
+            address = ' '.join(p for p in parts if p)
+            return address or ""
         except Exception as e:
             cls._log.error("regionGetter error for %s: %s" % (proxy.proxy, str(e)))
             return ""
@@ -117,11 +150,16 @@ class _ThreadChecker(Thread):
             except Empty:
                 self.log.info("{}ProxyCheck - {}: complete".format(self.work_type.title(), self.name))
                 break
-            proxy = DoValidator.validator(proxy, self.work_type)
-            if self.work_type == "raw":
-                self.__ifRaw(proxy)
-            else:
-                self.__ifUse(proxy)
+            try:
+                proxy = DoValidator.validator(proxy, self.work_type)
+                if self.work_type == "raw":
+                    self.__ifRaw(proxy)
+                else:
+                    self.__ifUse(proxy)
+            except Exception as e:
+                self.log.error("{}ProxyCheck - {}: error for {}: {}".format(
+                    self.work_type.title(), self.name,
+                    getattr(proxy, 'proxy', '?'), str(e)))
             self.target_queue.task_done()
 
     def __ifRaw(self, proxy):
