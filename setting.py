@@ -86,7 +86,7 @@ POOL_SIZE_MIN = 20
 
 # ############# proxy attributes #################
 # 是否启用代理地域属性
-# True: 获取代理 IP 的地理位置信息（通过 ip-api.com，免费限额 45次/分钟）
+# True: 获取代理 IP 的地理位置信息（回退链：ip-api.com → ipwho.is）
 # False: 不获取地域信息，可提高验证速度
 PROXY_REGION = True
 

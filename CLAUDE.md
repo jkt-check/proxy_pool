@@ -60,7 +60,7 @@ Configuration uses three-level priority: **env vars > YAML config file > setting
 - `PROXY_FETCHER`/`proxy_fetcher`: List of fetcher method names to enable
 - `VERIFY_TIMEOUT`/`verify_timeout`: Proxy validation timeout (seconds)
 - `POOL_SIZE_MIN`/`pool_size_min`: Minimum proxy count before triggering fetch
-- `PROXY_REGION`/`proxy_region`: Enable geo-region lookup via ip-api.com (accepts: true/false, yes/no, on/off, 1/0; free tier: 45 req/min)
+- `PROXY_REGION`/`proxy_region`: Enable geo-region lookup (accepts: true/false, yes/no, on/off, 1/0; uses fallback chain: ip-api.com → ipwho.is)
 - `PROXY_POOL_CONFIG`: Path to YAML config file
 - `REFRESH_SIGNAL_KEY`/`refresh_signal_key`: Redis key for cross-process refresh signal
 
@@ -180,7 +180,8 @@ Configuration uses three-level priority: **env vars > YAML config file > setting
 
 ### Known Limitations
 - **HTTPS proxies**: Free proxy sources rarely support HTTPS CONNECT tunneling. Pool will typically have 0 HTTPS proxies. This is a fundamental limitation of free proxies, not a validation bug.
-- **Region API rate limit**: ip-api.com free tier allows 45 requests/minute. Under heavy concurrent validation, some region lookups may be rate-limited (returns empty string, logged as warning).
+- **Region API fallback**: `regionGetter` uses a fallback chain (`_REGION_APIS` in `check.py`): ip-api.com (HTTP, Chinese, 40/min) → ipwho.is (HTTPS, English, 20/min). Each API has its own rate limiter. To add a new provider, append a dict to `_REGION_APIS` with `name`, `url`, `limiter_key`, `timeout`, `validate`, and `extract` fields, and add the limiter to `_LIMITERS`.
+- **Region API rate limit**: When all APIs are rate-limited or fail, region returns empty string (logged as warning).
 
 ## Extending the System
 

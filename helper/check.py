@@ -11,6 +11,7 @@
                    2021/05/25: 分别校验http和https
                    2022/08/16: 获取代理Region信息
                    2024/04/19: 改进异常处理，添加日志记录
+                   2026/04/22: 多 API 回退链（ip-api.com → ipwho.is），提升国内可用性
 -------------------------------------------------
 """
 __author__ = 'JHao'
@@ -26,7 +27,7 @@ from handler.configHandler import ConfigHandler
 
 
 class _RateLimiter(object):
-    """滑动窗口速率限制器，用于限制 ip-api.com 调用频率"""
+    """滑动窗口速率限制器"""
 
     def __init__(self, max_calls, period_seconds):
         self._max_calls = max_calls
@@ -38,7 +39,6 @@ class _RateLimiter(object):
         """检查是否允许调用，返回 True/False"""
         with self._lock:
             now = datetime.now().timestamp()
-            # 清除过期的时间戳
             cutoff = now - self._period
             self._timestamps = [t for t in self._timestamps if t > cutoff]
             if len(self._timestamps) >= self._max_calls:
@@ -47,7 +47,35 @@ class _RateLimiter(object):
             return True
 
 
-_region_limiter = _RateLimiter(40, 60)  # ip-api.com 免费限额 45次/分钟，留 5 次余量
+# 各 API 独立速率限制器
+_ipapi_limiter = _RateLimiter(40, 60)    # ip-api.com 免费限额 45次/分钟，留 5 次余量
+_ipwho_limiter = _RateLimiter(20, 60)    # ipwho.is 保守限额 20次/分钟
+
+# 限速器全局查找表，供 _REGION_APIS 引用
+_LIMITERS = {
+    'ip-api.com': _ipapi_limiter,
+    'ipwho.is': _ipwho_limiter,
+}
+
+# Region API 回退链：依次尝试，首个成功即返回
+_REGION_APIS = [
+    {
+        'name': 'ip-api.com',
+        'url': 'http://ip-api.com/json/{ip}?lang=zh-CN&fields=status,message,country,regionName,city',
+        'limiter_key': 'ip-api.com',
+        'timeout': 3,
+        'validate': lambda d: d.get('status') == 'success',
+        'extract': lambda d: ' '.join(filter(None, [d.get('country'), d.get('regionName'), d.get('city')])),
+    },
+    {
+        'name': 'ipwho.is',
+        'url': 'https://ipwho.is/{ip}',
+        'limiter_key': 'ipwho.is',
+        'timeout': 5,
+        'validate': lambda d: d.get('success') is True,
+        'extract': lambda d: ' '.join(filter(None, [d.get('country'), d.get('region'), d.get('city')])),
+    },
+]
 
 
 class DoValidator(object):
@@ -105,30 +133,41 @@ class DoValidator(object):
 
     @classmethod
     def regionGetter(cls, proxy):
-        """获取代理地理位置（通过 ip-api.com），失败时返回空字符串
-        内置速率限制器（40次/分钟），超出限额时跳过查询并记录日志
+        """获取代理地理位置，按 _REGION_APIS 回退链依次尝试
+        所有 API 均失败或被限流时返回空字符串
         """
-        if not _region_limiter.allow():
-            cls._log.debug("regionGetter: rate limit exceeded, skipping %s" % proxy.proxy)
-            return ""
-        try:
-            ip = proxy.proxy.split(':')[0]
-            url = 'http://ip-api.com/json/%s?lang=zh-CN' % ip
-            r = WebRequest().get(url=url, retry_time=0, timeout=3, retry_interval=0)
-            if r is None:
-                cls._log.warning("regionGetter: failed to get region for %s" % proxy.proxy)
-                return ""
-            data = r.json
-            if not data or data.get('status') != 'success':
-                reason = data.get('message', 'unknown') if data else 'empty response'
-                cls._log.warning("regionGetter: invalid response for %s: %s" % (proxy.proxy, reason))
-                return ""
-            parts = [data.get('country', ''), data.get('regionName', ''), data.get('city', '')]
-            address = ' '.join(p for p in parts if p)
-            return address or ""
-        except Exception as e:
-            cls._log.error("regionGetter error for %s: %s" % (proxy.proxy, str(e)))
-            return ""
+        ip = proxy.proxy.split(':')[0]
+        for api in _REGION_APIS:
+            limiter = _LIMITERS.get(api['limiter_key'])
+            if limiter is None:
+                cls._log.warning("regionGetter: no limiter for %s, skipping"
+                                 % api['name'])
+                continue
+            if not limiter.allow():
+                cls._log.debug("regionGetter: %s rate limit exceeded, skipping %s"
+                               % (api['name'], proxy.proxy))
+                continue
+            try:
+                url = api['url'].format(ip=ip)
+                r = WebRequest().get(url=url, retry_time=0, timeout=api['timeout'], retry_interval=0)
+                if r is None:
+                    cls._log.warning("regionGetter: %s request failed for %s"
+                                     % (api['name'], proxy.proxy))
+                    continue
+                data = r.json
+                if not data or not api['validate'](data):
+                    reason = data.get('message', 'unknown') if isinstance(data, dict) else 'empty response'
+                    cls._log.warning("regionGetter: %s invalid response for %s: %s"
+                                     % (api['name'], proxy.proxy, reason))
+                    continue
+                address = api['extract'](data).strip()
+                if address:
+                    return address
+            except Exception as e:
+                cls._log.error("regionGetter: %s error for %s: %s"
+                               % (api['name'], proxy.proxy, str(e)))
+                continue
+        return ""
 
 
 class _ThreadChecker(Thread):
